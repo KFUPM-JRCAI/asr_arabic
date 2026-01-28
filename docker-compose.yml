@@ -1,15 +1,16 @@
 services:
   speaches:
-    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    image: ${SPEACHES_IMAGE:-ghcr.io/speaches-ai/speaches:latest-cuda}
     ports:
-      - "8000:8000"
+      - "${SPEACHES_HOST_PORT:-8099}:8000"
     volumes:
-      - hf_cache:/root/.cache/huggingface/hub
+      - hf_cache:/home/ubuntu/.cache/huggingface/hub
+    gpus: all
 
   leaderboard:
     build: .
     ports:
-      - "7860:7860"
+      - "${LEADERBOARD_HOST_PORT:-17860}:7860"
     environment:
       SPEACHES_BASE_URL: http://speaches:8000
       LEADERBOARD_CSV: /app/results/leaderboard.csv

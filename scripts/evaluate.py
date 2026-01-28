@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 DEFAULT_CONFIG = "config/datasets.json"
 DEFAULT_RESULTS = "results/leaderboard.csv"
-DEFAULT_SPEACHES_URL = "http://localhost:8000"
+DEFAULT_SPEACHES_URL = "http://localhost:8099"
 DEFAULT_MODEL = "Systran/faster-whisper-large-v3"
 
 
