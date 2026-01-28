@@ -83,7 +83,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--smoke",
         action="store_true",
-        help="Download a tiny subset (default 3 samples per dataset)",
+        help="Download a tiny subset (default 100 samples per dataset)",
     )
     parser.add_argument(
         "--split",
@@ -415,7 +415,7 @@ def main() -> int:
     output_dir = Path(args.output_dir).resolve()
 
     if args.smoke and args.max_samples is None:
-        args.max_samples = 3
+        args.max_samples = 100
     if args.streaming is None:
         args.streaming = bool(args.smoke or args.max_samples)
 
