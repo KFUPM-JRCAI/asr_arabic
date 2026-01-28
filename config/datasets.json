@@ -1,0 +1,34 @@
+{
+  "datasets": [
+    {
+      "id": "sada",
+      "name": "SADA",
+      "path": "datasets/sada/test.jsonl"
+    },
+    {
+      "id": "common_voice_18",
+      "name": "Common Voice 18.0",
+      "path": "datasets/common_voice_18/test.jsonl"
+    },
+    {
+      "id": "masc_clean",
+      "name": "MASC (Clean)",
+      "path": "datasets/masc_clean/test.jsonl"
+    },
+    {
+      "id": "masc_noisy",
+      "name": "MASC (Noisy)",
+      "path": "datasets/masc_noisy/test.jsonl"
+    },
+    {
+      "id": "mgb2",
+      "name": "MGB-2",
+      "path": "datasets/mgb2/test.jsonl"
+    },
+    {
+      "id": "casablanca",
+      "name": "Casablanca",
+      "path": "datasets/casablanca/test.jsonl"
+    }
+  ]
+}

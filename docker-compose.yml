@@ -1,0 +1,22 @@
+services:
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf_cache:/root/.cache/huggingface/hub
+
+  leaderboard:
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      SPEACHES_BASE_URL: http://speaches:8000
+      LEADERBOARD_CSV: /app/results/leaderboard.csv
+    volumes:
+      - ./:/app
+    depends_on:
+      - speaches
+
+volumes:
+  hf_cache:
