@@ -32,13 +32,17 @@ class DatasetConfig:
 
 def load_config(path: Path) -> List[DatasetConfig]:
     config_dir = path.parent
+    # Prefer repo root when config lives under config/ and datasets/ sits next to it.
+    root_dir = config_dir
+    if not (config_dir / "datasets").exists() and (config_dir.parent / "datasets").exists():
+        root_dir = config_dir.parent
     with path.open("r", encoding="utf-8") as f:
         raw = json.load(f)
     datasets = []
     for item in raw.get("datasets", []):
         dataset_path = Path(item["path"])
         if not dataset_path.is_absolute():
-            dataset_path = (config_dir / dataset_path).resolve()
+            dataset_path = (root_dir / dataset_path).resolve()
         datasets.append(
             DatasetConfig(
                 dataset_id=item["id"],

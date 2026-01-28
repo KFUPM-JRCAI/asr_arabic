@@ -4,12 +4,16 @@
 from __future__ import annotations
 
 import argparse
+import io
+import itertools
 import json
 import os
 from pathlib import Path
 from typing import Iterable, List, Optional
 
 from datasets import Audio, load_dataset
+from datasets.utils.file_utils import xopen
+import soundfile as sf
 from tqdm import tqdm
 
 
@@ -97,6 +101,15 @@ def parse_args() -> argparse.Namespace:
         help="Root directory for dataset caches/manifests",
     )
     parser.add_argument(
+        "--streaming",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Stream samples instead of downloading full splits "
+            "(default: true for --smoke/--max-samples)"
+        ),
+    )
+    parser.add_argument(
         "--max-samples",
         type=int,
         default=None,
@@ -137,6 +150,7 @@ def resolve_split(
     token: Optional[str],
     cache_dir: Path,
     config: Optional[str] = None,
+    streaming: bool = False,
 ):
     last_error = None
     for split in split_preference:
@@ -147,6 +161,7 @@ def resolve_split(
                 split=split,
                 cache_dir=str(cache_dir),
                 token=token,
+                streaming=streaming,
             )
         except Exception as exc:  # noqa: BLE001
             last_error = exc
@@ -174,6 +189,20 @@ def make_relative(path: Path, base_dir: Path) -> str:
     return str(path)
 
 
+def iter_examples(dataset, max_samples: Optional[int]):
+    if max_samples is None:
+        return dataset, None
+    if hasattr(dataset, "select"):
+        try:
+            dataset_len = len(dataset)
+        except TypeError:
+            dataset_len = None
+        if dataset_len is not None:
+            count = min(max_samples, dataset_len)
+            return dataset.select(range(count)), count
+    return itertools.islice(dataset, max_samples), max_samples
+
+
 def manifest_rows(
     dataset,
     text_field: str,
@@ -182,16 +211,64 @@ def manifest_rows(
     max_samples: Optional[int],
 ):
     dataset = dataset.cast_column(audio_field, Audio(decode=False))
-    iterator = dataset
-    if max_samples:
-        iterator = dataset.select(range(min(max_samples, len(dataset))))
-    for example in tqdm(iterator, desc=base_dir.name, unit="utt"):
+    iterator, total = iter_examples(dataset, max_samples)
+    for example in tqdm(iterator, desc=base_dir.name, unit="utt", total=total):
         text = example.get(text_field, "")
         if not text:
             continue
         audio_path = audio_path_from_example(example, audio_field)
         yield {
             "audio_path": make_relative(audio_path, base_dir),
+            "text": text,
+        }
+
+
+def sanitize_prefix(value: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in value)
+
+
+def materialize_audio_rows(
+    dataset,
+    text_field: str,
+    audio_field: str,
+    base_dir: Path,
+    max_samples: Optional[int],
+    prefix: Optional[str] = None,
+):
+    dataset = dataset.cast_column(audio_field, Audio(decode=False))
+    audio_dir = base_dir / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    iterator, total = iter_examples(dataset, max_samples)
+    safe_prefix = sanitize_prefix(prefix) if prefix else ""
+    desc = safe_prefix or base_dir.name
+    for idx, example in enumerate(
+        tqdm(iterator, desc=desc, unit="utt", total=total)
+    ):
+        text = example.get(text_field, "")
+        if not text:
+            continue
+        audio = example.get(audio_field)
+        if isinstance(audio, dict):
+            audio_bytes = audio.get("bytes")
+            audio_path = audio.get("path")
+            if audio_bytes is not None:
+                with io.BytesIO(audio_bytes) as buf:
+                    audio_array, sample_rate = sf.read(buf)
+            elif audio_path:
+                with xopen(str(audio_path), "rb") as f:
+                    audio_array, sample_rate = sf.read(f)
+            else:
+                raise KeyError(f"Audio field '{audio_field}' missing path/bytes")
+        elif isinstance(audio, str):
+            with xopen(str(audio), "rb") as f:
+                audio_array, sample_rate = sf.read(f)
+        else:
+            raise KeyError(f"Audio field '{audio_field}' missing data")
+        name_prefix = f"{safe_prefix}_" if safe_prefix else ""
+        output_path = audio_dir / f"{name_prefix}{idx:06d}.wav"
+        sf.write(output_path, audio_array, sample_rate)
+        yield {
+            "audio_path": str(output_path.relative_to(base_dir)),
             "text": text,
         }
 
@@ -204,6 +281,7 @@ def process_simple_dataset(
     overwrite: bool,
     max_samples: Optional[int],
     token: Optional[str],
+    streaming: bool,
 ):
     cache_dir = output_dir / spec["cache_id"] / "hf_cache"
     dataset = resolve_split(
@@ -211,17 +289,27 @@ def process_simple_dataset(
         split_preference,
         token,
         cache_dir,
+        streaming=streaming,
     )
     output_key = spec["outputs"][0]
     dataset_dir = output_dir / output_key
     manifest_path = dataset_dir / "test.jsonl"
-    rows = manifest_rows(
-        dataset,
-        spec["text_field"],
-        spec["audio_field"],
-        dataset_dir,
-        max_samples,
-    )
+    if streaming:
+        rows = materialize_audio_rows(
+            dataset,
+            spec["text_field"],
+            spec["audio_field"],
+            dataset_dir,
+            max_samples,
+        )
+    else:
+        rows = manifest_rows(
+            dataset,
+            spec["text_field"],
+            spec["audio_field"],
+            dataset_dir,
+            max_samples,
+        )
     count = write_jsonl(manifest_path, rows, overwrite)
     print(f"[{key}] wrote {count} rows to {manifest_path}")
 
@@ -233,6 +321,7 @@ def process_masc(
     overwrite: bool,
     max_samples: Optional[int],
     token: Optional[str],
+    streaming: bool,
 ):
     cache_dir = output_dir / spec["cache_id"] / "hf_cache"
     dataset = resolve_split(
@@ -240,6 +329,7 @@ def process_masc(
         split_preference,
         token,
         cache_dir,
+        streaming=streaming,
     )
     dataset = dataset.cast_column(spec["audio_field"], Audio(decode=False))
 
@@ -250,13 +340,23 @@ def process_masc(
         dataset_dir = output_dir / output_key
         manifest_path = dataset_dir / "test.jsonl"
         filtered = dataset.filter(lambda row: row.get(type_field) == type_value)
-        rows = manifest_rows(
-            filtered,
-            spec["text_field"],
-            spec["audio_field"],
-            dataset_dir,
-            max_samples,
-        )
+        if streaming:
+            rows = materialize_audio_rows(
+                filtered,
+                spec["text_field"],
+                spec["audio_field"],
+                dataset_dir,
+                max_samples,
+                prefix=output_key,
+            )
+        else:
+            rows = manifest_rows(
+                filtered,
+                spec["text_field"],
+                spec["audio_field"],
+                dataset_dir,
+                max_samples,
+            )
         count = write_jsonl(manifest_path, rows, overwrite)
         print(f"[masc:{output_key}] wrote {count} rows to {manifest_path}")
 
@@ -268,6 +368,7 @@ def process_casablanca(
     overwrite: bool,
     max_samples: Optional[int],
     token: Optional[str],
+    streaming: bool,
 ):
     cache_dir = output_dir / spec["cache_id"] / "hf_cache"
     dataset_dir = output_dir / spec["outputs"][0]
@@ -283,20 +384,26 @@ def process_casablanca(
                 token,
                 cache_dir,
                 config=config,
+                streaming=streaming,
             )
-            dataset = dataset.cast_column(spec["audio_field"], Audio(decode=False))
-            iterator = dataset
-            if max_samples:
-                iterator = dataset.select(range(min(max_samples, len(dataset))))
-            for example in tqdm(iterator, desc=f"casablanca:{config}", unit="utt"):
-                text = example.get(spec["text_field"], "")
-                if not text:
-                    continue
-                audio_path = audio_path_from_example(example, spec["audio_field"])
-                row = {
-                    "audio_path": make_relative(audio_path, dataset_dir),
-                    "text": text,
-                }
+            if streaming:
+                rows = materialize_audio_rows(
+                    dataset,
+                    spec["text_field"],
+                    spec["audio_field"],
+                    dataset_dir,
+                    max_samples,
+                    prefix=config,
+                )
+            else:
+                rows = manifest_rows(
+                    dataset,
+                    spec["text_field"],
+                    spec["audio_field"],
+                    dataset_dir,
+                    max_samples,
+                )
+            for row in rows:
                 f.write(json.dumps(row, ensure_ascii=True) + "\n")
                 total += 1
 
@@ -309,6 +416,8 @@ def main() -> int:
 
     if args.smoke and args.max_samples is None:
         args.max_samples = 3
+    if args.streaming is None:
+        args.streaming = bool(args.smoke or args.max_samples)
 
     if args.only:
         selected = {item.strip() for item in args.only.split(",") if item.strip()}
@@ -332,6 +441,7 @@ def main() -> int:
                 args.overwrite,
                 args.max_samples,
                 args.hf_token,
+                args.streaming,
             )
         elif key == "casablanca":
             process_casablanca(
@@ -341,6 +451,7 @@ def main() -> int:
                 args.overwrite,
                 args.max_samples,
                 args.hf_token,
+                args.streaming,
             )
         else:
             process_simple_dataset(
@@ -351,10 +462,34 @@ def main() -> int:
                 args.overwrite,
                 args.max_samples,
                 args.hf_token,
+                args.streaming,
             )
 
     return 0
 
 
+def shutdown_fsspec() -> None:
+    try:
+        from fsspec import asyn
+    except Exception:
+        return
+    loop = asyn.loop[0]
+    thread = asyn.iothread[0]
+    if loop is not None and loop.is_running():
+        try:
+            loop.call_soon_threadsafe(loop.stop)
+        except Exception:
+            pass
+    if thread is not None:
+        thread.join(timeout=2)
+    try:
+        asyn.reset_lock()
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    finally:
+        shutdown_fsspec()

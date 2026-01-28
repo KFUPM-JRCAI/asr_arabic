@@ -11,8 +11,10 @@ curl -X POST http://localhost:${SPEACHES_HOST_PORT:-8099}/v1/models/Systran/fast
 
 # full test splits
 python scripts/download_datasets.py
-# or smoke (3 samples each)
+# or smoke (3 samples each, streamed to avoid full downloads)
 python scripts/download_datasets.py --smoke
+# force full downloads even with --smoke/--max-samples
+python scripts/download_datasets.py --no-streaming --smoke
 
 # evaluate
 nohup docker compose run --rm leaderboard python scripts/evaluate.py --append > results/eval.log 2>&1 &
