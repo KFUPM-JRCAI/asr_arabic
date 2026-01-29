@@ -6,3 +6,4 @@ tqdm>=4.66
 datasets>=2.19
 soundfile>=0.12
 torchcodec
+whisper-live

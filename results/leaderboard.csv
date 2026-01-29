@@ -1,0 +1,3 @@
+Model,SADA WER,SADA CER,Common Voice 18.0 WER,Common Voice 18.0 CER,MASC (Clean) WER,MASC (Clean) CER,MASC (Noisy) WER,MASC (Noisy) CER,MGB-2 WER,MGB-2 CER,Casablanca WER,Casablanca CER,Average WER,Average CER
+arabicai,68.0,37.23,13.08,4.27,36.58,9.85,43.72,14.41,36.92,16.09,71.24,33.59,44.92,19.24
+Systran/faster-whisper-large-v3,55.39,34.44,10.86,2.98,35.21,8.65,40.64,13.71,32.87,14.98,66.51,31.2,40.25,17.66
