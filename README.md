@@ -22,6 +22,29 @@ nohup docker compose run --rm leaderboard python scripts/evaluate.py --append > 
 
 Then open `http://localhost:${LEADERBOARD_HOST_PORT:-17860}`.
 
+## NVIDIA Riva / Parakeet (optional)
+
+Run NVIDIA's Parakeet 1.1B RNNT multilingual NIM with the included OpenAI-compatible wrapper.
+
+```bash
+# 1) Launch the NIM (needs GPU + NGC_API_KEY)
+export NGC_API_KEY=...
+export NIM_TAGS_SELECTOR="mode=ofl,diarizer=disabled"
+docker compose --profile riva up -d riva
+
+# 2) Start the wrapper (maps ar -> ar-AR for Riva)
+docker compose --profile riva up -d riva-wrapper
+
+# 3) Evaluate against Riva
+docker compose run --rm leaderboard python scripts/evaluate.py \
+  --append \
+  --language ar \
+  --model parakeet-1-1b-rnnt-multilingual \
+  --api-url http://riva-wrapper:8099 \
+  --predictions-dir results/predictions_riva \
+  --save-preds --resume
+```
+
 ## Data format
 
 Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
@@ -36,3 +59,7 @@ Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
 - `LEADERBOARD_HOST_PORT` (default 17860)
 - `HF_TOKEN` for gated datasets
 - `SPEACHES_IMAGE` to swap CPU/GPU images
+- `NGC_API_KEY` (required to pull NVIDIA NIM images when using `--profile riva`)
+- `NIM_TAGS_SELECTOR` (e.g., `mode=ofl,diarizer=disabled` for offline Parakeet)
+- `RIVA_WRAPPER_HOST_PORT` (default 8099)
+- `RIVA_HTTP_HOST_PORT` / `RIVA_GRPC_HOST_PORT` to avoid host port clashes (default 9000/50051)

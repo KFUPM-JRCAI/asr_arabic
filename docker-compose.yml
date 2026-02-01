@@ -19,5 +19,47 @@ services:
     depends_on:
       - speaches
 
+  riva:
+    profiles: ["riva"]
+    image: nvcr.io/nim/nvidia/parakeet-1-1b-rnnt-multilingual:latest
+    environment:
+      NGC_API_KEY: ${NGC_API_KEY}
+      NIM_HTTP_API_PORT: 9000
+      NIM_GRPC_API_PORT: 50051
+      NIM_TAGS_SELECTOR: ${NIM_TAGS_SELECTOR:-mode=ofl,diarizer=disabled}
+    ports:
+      - "${RIVA_HTTP_HOST_PORT:-9000}:9000"
+      - "${RIVA_GRPC_HOST_PORT:-50051}:50051"
+    gpus: all
+    shm_size: 8GB
+
+  riva-wrapper:
+    profiles: ["riva"]
+    build: .
+    command:
+      [
+        "python",
+        "scripts/riva_wrapper.py",
+        "--listen-host",
+        "0.0.0.0",
+        "--listen-port",
+        "8099",
+        "--riva-url",
+        "http://riva:9000",
+        "--language",
+        "ar",
+        "--model",
+        "parakeet-1-1b-rnnt-multilingual",
+      ]
+    environment:
+      RIVA_AUTH_TOKEN: ${RIVA_AUTH_TOKEN:-}
+      WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
+    ports:
+      - "${RIVA_WRAPPER_HOST_PORT:-8099}:8099"
+    volumes:
+      - ./:/app
+    depends_on:
+      - riva
+
 volumes:
   hf_cache:
