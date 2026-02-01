@@ -61,5 +61,49 @@ services:
     depends_on:
       - riva
 
+  canary:
+    profiles: ["canary"]
+    image: nvcr.io/nim/nvidia/canary-1b:latest
+    environment:
+      NGC_API_KEY: ${NGC_API_KEY}
+      NIM_HTTP_API_PORT: 9000
+      NIM_GRPC_API_PORT: 50051
+      NIM_TAGS_SELECTOR: ${NIM_TAGS_SELECTOR:-name=canary-1b}
+      NVIDIA_VISIBLE_DEVICES: "1"
+      CUDA_VISIBLE_DEVICES: "0"
+    ports:
+      - "${CANARY_HTTP_HOST_PORT:-9011}:9000"
+      - "${CANARY_GRPC_HOST_PORT:-50052}:50051"
+    runtime: nvidia
+    shm_size: 8GB
+
+  canary-wrapper:
+    profiles: ["canary"]
+    build: .
+    command:
+      [
+        "python",
+        "scripts/riva_wrapper.py",
+        "--listen-host",
+        "0.0.0.0",
+        "--listen-port",
+        "8099",
+        "--riva-url",
+        "http://canary:9000",
+        "--language",
+        "ar",
+        "--model",
+        "canary-1b",
+      ]
+    environment:
+      RIVA_AUTH_TOKEN: ${RIVA_AUTH_TOKEN:-}
+      WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
+    ports:
+      - "${CANARY_WRAPPER_HOST_PORT:-8098}:8099"
+    volumes:
+      - ./:/app
+    depends_on:
+      - canary
+
 volumes:
   hf_cache:

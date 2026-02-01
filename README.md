@@ -45,6 +45,28 @@ docker compose run --rm leaderboard python scripts/evaluate.py \
   --save-preds --resume
 ```
 
+## NVIDIA Canary-1B (optional)
+
+Run NVIDIA's Canary-1B ASR NIM (supports both speech-to-text recognition and translation).
+
+```bash
+# 1) Launch the Canary NIM (needs GPU + NGC_API_KEY)
+export NGC_API_KEY=...
+docker compose --profile canary up -d canary
+
+# 2) Start the wrapper (maps ar -> ar-AR for Canary)
+docker compose --profile canary up -d canary-wrapper
+
+# 3) Evaluate against Canary
+docker compose run --rm leaderboard python scripts/evaluate.py \
+  --append \
+  --language ar \
+  --model canary-1b \
+  --api-url http://canary-wrapper:8099 \
+  --predictions-dir results/predictions_canary \
+  --save-preds --resume
+```
+
 ## Data format
 
 Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
@@ -59,7 +81,9 @@ Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
 - `LEADERBOARD_HOST_PORT` (default 17860)
 - `HF_TOKEN` for gated datasets
 - `SPEACHES_IMAGE` to swap CPU/GPU images
-- `NGC_API_KEY` (required to pull NVIDIA NIM images when using `--profile riva`)
-- `NIM_TAGS_SELECTOR` (e.g., `mode=ofl,diarizer=disabled` for offline Parakeet)
-- `RIVA_WRAPPER_HOST_PORT` (default 8099)
-- `RIVA_HTTP_HOST_PORT` / `RIVA_GRPC_HOST_PORT` to avoid host port clashes (default 9000/50051)
+- `NGC_API_KEY` (required to pull NVIDIA NIM images when using `--profile riva` or `--profile canary`)
+- `NIM_TAGS_SELECTOR` (e.g., `mode=ofl,diarizer=disabled` for offline Parakeet, or `name=canary-1b` for Canary)
+- `RIVA_WRAPPER_HOST_PORT` (default 8099) - wrapper port for Parakeet
+- `RIVA_HTTP_HOST_PORT` / `RIVA_GRPC_HOST_PORT` - Parakeet NIM ports (default 9000/50051)
+- `CANARY_WRAPPER_HOST_PORT` (default 8098) - wrapper port for Canary
+- `CANARY_HTTP_HOST_PORT` / `CANARY_GRPC_HOST_PORT` - Canary NIM ports (default 9011/50052)
