@@ -105,5 +105,64 @@ services:
     depends_on:
       - canary
 
+  qwen3-asr:
+    profiles: ["qwen3-asr"]
+    build:
+      context: .
+      dockerfile: Dockerfile.qwen3-asr
+    command:
+      [
+        "qwen-asr-serve",
+        "Qwen/Qwen3-ASR-1.7B",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--gpu-memory-utilization",
+        "${QWEN3_GPU_MEMORY_UTIL:-0.8}",
+        "--max-model-len",
+        "${QWEN3_MAX_MODEL_LEN:-4096}",
+      ]
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+    ports:
+      - "${QWEN3_ASR_HOST_PORT:-9012}:8000"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    shm_size: 8GB
+
+  qwen3-asr-wrapper:
+    profiles: ["qwen3-asr"]
+    build: .
+    command:
+      [
+        "python",
+        "scripts/qwen3_wrapper.py",
+        "--listen-host",
+        "0.0.0.0",
+        "--listen-port",
+        "8099",
+        "--qwen3-url",
+        "http://qwen3-asr:8000",
+        "--model",
+        "Qwen/Qwen3-ASR-1.7B",
+      ]
+    environment:
+      QWEN3_AUTH_TOKEN: ${QWEN3_AUTH_TOKEN:-}
+      WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
+    ports:
+      - "${QWEN3_WRAPPER_HOST_PORT:-8097}:8099"
+    volumes:
+      - ./:/app
+    depends_on:
+      - qwen3-asr
+
 volumes:
   hf_cache:

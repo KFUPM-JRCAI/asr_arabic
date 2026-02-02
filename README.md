@@ -67,6 +67,33 @@ docker compose run --rm leaderboard python scripts/evaluate.py \
   --save-preds --resume
 ```
 
+## Qwen3-ASR-1.7B (optional)
+
+Run Qwen3-ASR-1.7B via the official `qwen-asr` package with vLLM backend.
+
+```bash
+# 1) Build the custom Docker image (first time only, may take 10-15 minutes)
+docker compose --profile qwen3-asr build qwen3-asr
+
+# 2) Launch the vLLM service and wrapper (needs GPU)
+docker compose --profile qwen3-asr up -d qwen3-asr qwen3-asr-wrapper
+
+# 3) Monitor the logs until the model is loaded and server is ready (may take 5-10 minutes)
+docker compose logs -f qwen3-asr
+# Wait for: "Uvicorn running on http://0.0.0.0:8000"
+
+# 4) Evaluate against Qwen3-ASR via the wrapper
+docker compose run --rm leaderboard python scripts/evaluate.py \
+  --append \
+  --language ar \
+  --model Qwen/Qwen3-ASR-1.7B \
+  --api-url http://qwen3-asr-wrapper:8099 \
+  --predictions-dir results/predictions_qwen3 \
+  --save-preds --resume
+```
+
+**Note:** This uses the official `qwen-asr-serve` command which includes the necessary transformers updates to support the new `qwen3_asr` model architecture. The wrapper handles the JSON response format and forces Arabic language detection.
+
 ## Data format
 
 Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
@@ -87,3 +114,7 @@ Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
 - `RIVA_HTTP_HOST_PORT` / `RIVA_GRPC_HOST_PORT` - Parakeet NIM ports (default 9000/50051)
 - `CANARY_WRAPPER_HOST_PORT` (default 8098) - wrapper port for Canary
 - `CANARY_HTTP_HOST_PORT` / `CANARY_GRPC_HOST_PORT` - Canary NIM ports (default 9011/50052)
+- `QWEN3_WRAPPER_HOST_PORT` (default 8097) - wrapper port for Qwen3-ASR
+- `QWEN3_ASR_HOST_PORT` (default 9012) - vLLM server port for Qwen3-ASR
+- `QWEN3_GPU_MEMORY_UTIL` (default 0.8) - GPU memory utilization for Qwen3-ASR vLLM
+- `QWEN3_MAX_MODEL_LEN` (default 4096) - max model length for Qwen3-ASR vLLM
