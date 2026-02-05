@@ -164,5 +164,41 @@ services:
     depends_on:
       - qwen3-asr
 
+  # KFUPM-JRCAI/WhisperLargeArabic - fine-tuned Whisper Large for Arabic
+  whisper-large-arabic:
+    profiles: ["whisper-large-arabic"]
+    build:
+      context: .
+      dockerfile: Dockerfile.whisper-large-arabic
+    command:
+      [
+        "python",
+        "scripts/whisper_large_arabic_wrapper.py",
+        "--listen-host",
+        "0.0.0.0",
+        "--listen-port",
+        "8099",
+        "--model",
+        "KFUPM-JRCAI/WhisperLargeArabic",
+        "--language",
+        "ar",
+      ]
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
+    ports:
+      - "${WHISPER_LARGE_ARABIC_HOST_PORT:-8096}:8099"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+      - ./:/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    shm_size: 8GB
+
 volumes:
   hf_cache:
