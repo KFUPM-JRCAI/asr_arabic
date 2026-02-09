@@ -94,6 +94,32 @@ docker compose run --rm leaderboard python scripts/evaluate.py \
 
 **Note:** This uses the official `qwen-asr-serve` command which includes the necessary transformers updates to support the new `qwen3_asr` model architecture. The wrapper handles the JSON response format and forces Arabic language detection.
 
+## KFUPM-JRCAI/WhisperTurboArabic (optional)
+
+Run KFUPM-JRCAI's fine-tuned Whisper Large v3 Turbo model for Arabic ASR.
+This is a CTranslate2/faster-whisper model served via a custom wrapper (not in the Speaches registry).
+
+```bash
+# 1) Build the custom Docker image (first time only)
+docker compose --profile whisper-turbo-arabic build whisper-turbo-arabic
+
+# 2) Launch the service (needs GPU)
+docker compose --profile whisper-turbo-arabic up -d whisper-turbo-arabic
+
+# 3) Monitor the logs until the model is loaded
+docker compose logs -f whisper-turbo-arabic
+# Wait for: "Server ready!"
+
+# 4) Evaluate against WhisperTurboArabic
+docker compose run --rm leaderboard python scripts/evaluate.py \
+  --append \
+  --language ar \
+  --model KFUPM-JRCAI/WhisperTurboArabic \
+  --api-url http://whisper-turbo-arabic:8099 \
+  --predictions-dir results/predictions_whisper_turbo_arabic \
+  --save-preds --resume
+```
+
 ## KFUPM-JRCAI/WhisperLargeArabic (optional)
 
 Run KFUPM-JRCAI's fine-tuned Whisper Large model for Arabic ASR.
@@ -144,3 +170,4 @@ Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
 - `QWEN3_GPU_MEMORY_UTIL` (default 0.8) - GPU memory utilization for Qwen3-ASR vLLM
 - `QWEN3_MAX_MODEL_LEN` (default 4096) - max model length for Qwen3-ASR vLLM
 - `WHISPER_LARGE_ARABIC_HOST_PORT` (default 8096) - port for WhisperLargeArabic wrapper
+- `WHISPER_TURBO_ARABIC_HOST_PORT` (default 8095) - port for WhisperTurboArabic wrapper
