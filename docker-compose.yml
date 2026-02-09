@@ -215,7 +215,7 @@ services:
         "--listen-port",
         "8099",
         "--model",
-        "KFUPM-JRCAI/WhisperTurboArabic",
+        "KFUPM-JRCAI/WhisperTurboArabic_v2",
         "--language",
         "ar",
       ]
@@ -236,5 +236,45 @@ services:
               capabilities: [gpu]
     shm_size: 8GB
 
+  # facebook/omniASR-LLM-1B - Meta's omnilingual ASR model
+  omniasr:
+    profiles: ["omniasr"]
+    build:
+      context: .
+      dockerfile: Dockerfile.omniasr
+    command:
+      [
+        "python",
+        "scripts/omniasr_wrapper.py",
+        "--listen-host",
+        "0.0.0.0",
+        "--listen-port",
+        "8099",
+        "--model",
+        "facebook/omniASR-LLM-1B",
+        "--model-card",
+        "omniASR_LLM_1B",
+        "--language",
+        "ar",
+      ]
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
+    ports:
+      - "${OMNIASR_HOST_PORT:-8094}:8099"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+      - fairseq2_cache:/root/.cache/fairseq2
+      - ./:/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    shm_size: 8GB
+
 volumes:
   hf_cache:
+  fairseq2_cache:

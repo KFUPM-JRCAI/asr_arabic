@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OpenAI-compatible HTTP wrapper for KFUPM-JRCAI/WhisperTurboArabic (CTranslate2 / faster-whisper)."""
+"""OpenAI-compatible HTTP wrapper for facebook/omniASR-LLM-1B (fairseq2 / omnilingual-asr)."""
 
 from __future__ import annotations
 
@@ -12,32 +12,42 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional, Tuple, cast
 
-from faster_whisper import WhisperModel
+from omnilingual_asr.models.inference.pipeline import ASRInferencePipeline
+
+# Language mapping: ISO 639-1 → ISO 639-3 + script (required by omniASR)
+_LANG_MAP = {
+    "ar": "ara_Arab",
+    "en": "eng_Latn",
+    "fr": "fra_Latn",
+    "de": "deu_Latn",
+    "es": "spa_Latn",
+    "zh": "cmn_Hans",
+}
+
+# Global pipeline (loaded once at startup)
+_PIPELINE: Optional[ASRInferencePipeline] = None
 
 
-# Global model (loaded once at startup)
-_MODEL: Optional[WhisperModel] = None
+def load_pipeline(model_card: str) -> ASRInferencePipeline:
+    global _PIPELINE
+    if _PIPELINE is not None:
+        return _PIPELINE
 
-
-def load_model(model_id: str, device: str, compute_type: str) -> WhisperModel:
-    global _MODEL
-    if _MODEL is not None:
-        return _MODEL
-
-    print(f"Loading model {model_id} (device={device}, compute_type={compute_type})...")
-    _MODEL = WhisperModel(model_id, device=device, compute_type=compute_type)
-    print(f"Model {model_id} loaded successfully!")
-    return _MODEL
+    print(f"Loading omniASR pipeline (model_card={model_card})...")
+    _PIPELINE = ASRInferencePipeline(model_card=model_card)
+    print(f"Pipeline {model_card} loaded successfully!")
+    return _PIPELINE
 
 
 def transcribe_audio(
     audio_path: str,
-    model: WhisperModel,
+    pipeline: ASRInferencePipeline,
     language: str = "ar",
 ) -> str:
-    """Transcribe audio file using faster-whisper."""
-    segments, _info = model.transcribe(audio_path, language=language, beam_size=5)
-    return " ".join(seg.text.strip() for seg in segments)
+    """Transcribe audio file using omniASR pipeline."""
+    lang_code = _LANG_MAP.get(language, language)
+    results = pipeline.transcribe([audio_path], lang=[lang_code], batch_size=1)
+    return results[0].strip() if results else ""
 
 
 class WrapperServer(ThreadingHTTPServer):
@@ -45,13 +55,13 @@ class WrapperServer(ThreadingHTTPServer):
         self,
         server_address: Tuple[str, int],
         RequestHandlerClass: type,
-        model: WhisperModel,
+        pipeline: ASRInferencePipeline,
         model_name: str,
         default_language: str,
         auth_token: Optional[str],
     ):
         super().__init__(server_address, RequestHandlerClass)
-        self.model = model
+        self.pipeline = pipeline
         self.model_name = model_name
         self.default_language = default_language
         self.auth_token = auth_token
@@ -97,7 +107,7 @@ class OpenAICompatHandler(BaseHTTPRequestHandler):
                         {
                             "id": self._srv().model_name,
                             "object": "model",
-                            "owned_by": "kfupm-jrcai",
+                            "owned_by": "facebook",
                         }
                     ],
                 },
@@ -111,7 +121,7 @@ class OpenAICompatHandler(BaseHTTPRequestHandler):
                     {
                         "id": self._srv().model_name,
                         "object": "model",
-                        "owned_by": "kfupm-jrcai",
+                        "owned_by": "facebook",
                     },
                 )
                 return
@@ -165,7 +175,7 @@ class OpenAICompatHandler(BaseHTTPRequestHandler):
                 srv = self._srv()
                 transcription = transcribe_audio(
                     audio_path=str(tmp_path),
-                    model=srv.model,
+                    pipeline=srv.pipeline,
                     language=language,
                 )
 
@@ -200,15 +210,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--model",
-        default=os.getenv("MODEL_ID", "KFUPM-JRCAI/WhisperTurboArabic_v2"),
+        default=os.getenv("MODEL_ID", "facebook/omniASR-LLM-1B"),
     )
     parser.add_argument(
-        "--device",
-        default=os.getenv("DEVICE", "cuda"),
-    )
-    parser.add_argument(
-        "--compute-type",
-        default=os.getenv("COMPUTE_TYPE", "float16"),
+        "--model-card",
+        default=os.getenv("MODEL_CARD", "omniASR_LLM_1B"),
     )
     parser.add_argument(
         "--language",
@@ -224,15 +230,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    model = load_model(args.model, args.device, args.compute_type)
+    pipeline = load_pipeline(args.model_card)
 
-    print(f"Starting WhisperTurboArabic wrapper on {args.listen_host}:{args.listen_port}")
-    print(f"Model: {args.model}, Device: {args.device}, Compute: {args.compute_type}")
+    print(f"Starting omniASR wrapper on {args.listen_host}:{args.listen_port}")
+    print(f"Model: {args.model}, Model card: {args.model_card}")
 
     server = WrapperServer(
         (args.listen_host, args.listen_port),
         OpenAICompatHandler,
-        model=model,
+        pipeline=pipeline,
         model_name=args.model,
         default_language=args.language,
         auth_token=args.auth_token,

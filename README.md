@@ -114,9 +114,9 @@ docker compose logs -f whisper-turbo-arabic
 docker compose run --rm leaderboard python scripts/evaluate.py \
   --append \
   --language ar \
-  --model KFUPM-JRCAI/WhisperTurboArabic \
+  --model KFUPM-JRCAI/WhisperTurboArabic_v2 \
   --api-url http://whisper-turbo-arabic:8099 \
-  --predictions-dir results/predictions_whisper_turbo_arabic \
+  --predictions-dir results/predictions_whisper_turbo_arabic_v2 \
   --save-preds --resume
 ```
 
@@ -142,6 +142,31 @@ docker compose run --rm leaderboard python scripts/evaluate.py \
   --model KFUPM-JRCAI/WhisperLargeArabic \
   --api-url http://whisper-large-arabic:8099 \
   --predictions-dir results/predictions_whisper_large_arabic \
+  --save-preds --resume
+```
+
+## facebook/omniASR-LLM-1B (optional)
+
+Run Meta's omniASR-LLM-1B omnilingual ASR model (~6 GiB VRAM, BF16).
+
+```bash
+# 1) Build the custom Docker image (first time only)
+docker compose --profile omniasr build omniasr
+
+# 2) Launch the service (needs GPU)
+docker compose --profile omniasr up -d omniasr
+
+# 3) Monitor the logs until the model is loaded
+docker compose logs -f omniasr
+# Wait for: "Server ready!"
+
+# 4) Evaluate against omniASR-LLM-1B
+docker compose run --rm leaderboard python scripts/evaluate.py \
+  --append \
+  --language ar \
+  --model facebook/omniASR-LLM-1B \
+  --api-url http://omniasr:8099 \
+  --predictions-dir results/predictions_omniasr \
   --save-preds --resume
 ```
 
@@ -171,3 +196,4 @@ Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
 - `QWEN3_MAX_MODEL_LEN` (default 4096) - max model length for Qwen3-ASR vLLM
 - `WHISPER_LARGE_ARABIC_HOST_PORT` (default 8096) - port for WhisperLargeArabic wrapper
 - `WHISPER_TURBO_ARABIC_HOST_PORT` (default 8095) - port for WhisperTurboArabic wrapper
+- `OMNIASR_HOST_PORT` (default 8094) - port for omniASR-LLM-1B wrapper
