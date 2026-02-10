@@ -272,6 +272,42 @@ services:
               capabilities: [gpu]
     shm_size: 8GB
 
+  # KFUPM-JRCAI/WhisperArabic_v4 - fine-tuned Whisper Large v3 for Arabic (CTranslate2/faster-whisper)
+  whisper-arabic-v4:
+    profiles: ["whisper-arabic-v4"]
+    build:
+      context: .
+      dockerfile: Dockerfile.whisper-turbo-arabic
+    command:
+      [
+        "python",
+        "scripts/whisper_turbo_arabic_wrapper.py",
+        "--listen-host",
+        "0.0.0.0",
+        "--listen-port",
+        "8099",
+        "--model",
+        "KFUPM-JRCAI/WhisperArabic_v4",
+        "--language",
+        "ar",
+      ]
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
+    ports:
+      - "${WHISPER_ARABIC_V4_HOST_PORT:-8092}:8099"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+      - ./:/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    shm_size: 8GB
+
   # facebook/omniASR-LLM-1B - Meta's omnilingual ASR model
   omniasr:
     profiles: ["omniasr"]
