@@ -308,9 +308,9 @@ services:
               capabilities: [gpu]
     shm_size: 8GB
 
-  # KFUPM-JRCAI/WhisperArabic_v5 - fine-tuned Whisper Large v3 for Arabic (CTranslate2/faster-whisper)
-  whisper-arabic-v5:
-    profiles: ["whisper-arabic-v5"]
+  # KFUPM-JRCAI/WhisperArabic_v7 - fine-tuned Whisper Large v3 for Arabic (CTranslate2/faster-whisper)
+  whisper-arabic-v7:
+    profiles: ["whisper-arabic-v7"]
     build:
       context: .
       dockerfile: Dockerfile.whisper-turbo-arabic
@@ -323,7 +323,7 @@ services:
         "--listen-port",
         "8099",
         "--model",
-        "KFUPM-JRCAI/WhisperArabic_v5",
+        "KFUPM-JRCAI/WhisperArabic_v7",
         "--language",
         "ar",
       ]
@@ -331,7 +331,45 @@ services:
       HF_TOKEN: ${HF_TOKEN:-}
       WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
     ports:
-      - "${WHISPER_ARABIC_V5_HOST_PORT:-8091}:8099"
+      - "${WHISPER_ARABIC_V7_HOST_PORT:-8091}:8099"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+      - ./:/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    shm_size: 8GB
+
+  # RaedMughaus/whisper-large-v3-finetuned-cv-corpus-24-ar - LoRA adapter on whisper-large-v3
+  whisper-lora-arabic:
+    profiles: ["whisper-lora-arabic"]
+    build:
+      context: .
+      dockerfile: Dockerfile.whisper-lora
+    command:
+      [
+        "python",
+        "scripts/whisper_lora_wrapper.py",
+        "--listen-host",
+        "0.0.0.0",
+        "--listen-port",
+        "8099",
+        "--base-model",
+        "openai/whisper-large-v3",
+        "--adapter",
+        "RaedMughaus/whisper-large-v3-finetuned-cv-corpus-24-ar",
+        "--language",
+        "ar",
+      ]
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
+    ports:
+      - "${WHISPER_LORA_ARABIC_HOST_PORT:-8090}:8099"
     volumes:
       - hf_cache:/root/.cache/huggingface
       - ./:/app

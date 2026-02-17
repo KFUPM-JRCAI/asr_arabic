@@ -196,32 +196,6 @@ docker compose run --rm leaderboard python scripts/evaluate.py \
   --save-preds --resume
 ```
 
-## KFUPM-JRCAI/WhisperArabic_v5 (optional)
-
-Run KFUPM-JRCAI's fine-tuned Whisper Large v3 model (v5) for Arabic ASR.
-This is a CTranslate2/faster-whisper model, reusing the same Docker image as WhisperTurboArabic.
-
-```bash
-# 1) Build the Docker image (first time only, shared with WhisperTurboArabic)
-docker compose --profile whisper-arabic-v5 build whisper-arabic-v5
-
-# 2) Launch the service (needs GPU)
-docker compose --profile whisper-arabic-v5 up -d whisper-arabic-v5
-
-# 3) Monitor the logs until the model is loaded
-docker compose logs -f whisper-arabic-v5
-# Wait for: "Server ready!"
-
-# 4) Evaluate against WhisperArabic_v5
-docker compose run --rm leaderboard python scripts/evaluate.py \
-  --append \
-  --language ar \
-  --model KFUPM-JRCAI/WhisperArabic_v5 \
-  --api-url http://whisper-arabic-v5:8099 \
-  --predictions-dir results/predictions_whisper_arabic_v5 \
-  --save-preds --resume
-```
-
 ## KFUPM-JRCAI/WhisperArabic_v3 (optional)
 
 Run KFUPM-JRCAI's fine-tuned Whisper Large v3 model for Arabic ASR.
@@ -245,6 +219,32 @@ docker compose run --rm leaderboard python scripts/evaluate.py \
   --model KFUPM-JRCAI/WhisperArabic_v3 \
   --api-url http://whisper-arabic-v3:8099 \
   --predictions-dir results/predictions_whisper_arabic_v3 \
+  --save-preds --resume
+```
+
+## RaedMughaus/whisper-large-v3-finetuned-cv-corpus-24-ar (optional)
+
+Run a LoRA-adapted Whisper Large v3 fine-tuned on Common Voice Corpus 24 (Arabic).
+This loads the base `openai/whisper-large-v3` model and applies the PEFT/LoRA adapter.
+
+```bash
+# 1) Build the custom Docker image (first time only)
+docker compose --profile whisper-lora-arabic build whisper-lora-arabic
+
+# 2) Launch the service (needs GPU)
+docker compose --profile whisper-lora-arabic up -d whisper-lora-arabic
+
+# 3) Monitor the logs until the model is loaded
+docker compose logs -f whisper-lora-arabic
+# Wait for: "Server ready!"
+
+# 4) Evaluate
+docker compose run --rm leaderboard python scripts/evaluate.py \
+  --append \
+  --language ar \
+  --model RaedMughaus/whisper-large-v3-finetuned-cv-corpus-24-ar \
+  --api-url http://whisper-lora-arabic:8099 \
+  --predictions-dir results/predictions_whisper_lora_arabic \
   --save-preds --resume
 ```
 
@@ -276,5 +276,5 @@ Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
 - `WHISPER_TURBO_ARABIC_HOST_PORT` (default 8095) - port for WhisperTurboArabic wrapper
 - `WHISPER_ARABIC_V3_HOST_PORT` (default 8093) - port for WhisperArabic_v3 wrapper
 - `WHISPER_ARABIC_V4_HOST_PORT` (default 8092) - port for WhisperArabic_v4 wrapper
-- `WHISPER_ARABIC_V5_HOST_PORT` (default 8091) - port for WhisperArabic_v5 wrapper
 - `OMNIASR_HOST_PORT` (default 8094) - port for omniASR-LLM-1B wrapper
+- `WHISPER_LORA_ARABIC_HOST_PORT` (default 8090) - port for whisper-large-v3 LoRA Arabic wrapper
