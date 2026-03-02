@@ -382,6 +382,44 @@ services:
               capabilities: [gpu]
     shm_size: 8GB
 
+  # horrid-qvc/whisper_lora_ar_v2 - LoRA adapter on whisper-large-v3
+  whisper-lora-arabic-v2:
+    profiles: ["whisper-lora-arabic-v2"]
+    build:
+      context: .
+      dockerfile: Dockerfile.whisper-lora
+    command:
+      [
+        "python",
+        "scripts/whisper_lora_wrapper.py",
+        "--listen-host",
+        "0.0.0.0",
+        "--listen-port",
+        "8099",
+        "--base-model",
+        "openai/whisper-large-v3",
+        "--adapter",
+        "horrid-qvc/whisper_lora_ar_v2",
+        "--language",
+        "ar",
+      ]
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
+    ports:
+      - "${WHISPER_LORA_ARABIC_V2_HOST_PORT:-8089}:8099"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+      - ./:/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    shm_size: 8GB
+
   # facebook/omniASR-LLM-1B - Meta's omnilingual ASR model
   omniasr:
     profiles: ["omniasr"]
