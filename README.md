@@ -248,6 +248,31 @@ docker compose run --rm leaderboard python scripts/evaluate.py \
   --save-preds --resume
 ```
 
+## UsefulSensors/moonshine-base-ar (optional)
+
+Run Moonshine Base Arabic, a lightweight 61.5M parameter ASR model fine-tuned for Arabic by Useful Sensors.
+
+```bash
+# 1) Build the custom Docker image (first time only)
+docker compose --profile moonshine build moonshine
+
+# 2) Launch the service (needs GPU)
+docker compose --profile moonshine up -d moonshine
+
+# 3) Monitor the logs until the model is loaded
+docker compose logs -f moonshine
+# Wait for: "Server ready!"
+
+# 4) Evaluate
+docker compose run --rm leaderboard python scripts/evaluate.py \
+  --append \
+  --language ar \
+  --model UsefulSensors/moonshine-base-ar \
+  --api-url http://moonshine:8099 \
+  --predictions-dir results/predictions_moonshine \
+  --save-preds --resume
+```
+
 ## Data format
 
 Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:

@@ -1,0 +1,6 @@
+.venv
+.git
+datasets/*/audio
+datasets/*/hf_cache
+__pycache__
+*.pyc
