@@ -531,6 +531,45 @@ services:
               count: all
               capabilities: [gpu]
 
+  # MBZUAI/artst_asr_v3_qasr - ArTST-v3 QASR SpeechT5 model for Arabic ASR
+  artst-asr-qasr:
+    profiles: ["artst-asr-qasr"]
+    build:
+      context: .
+      dockerfile: Dockerfile.artst-asr
+    command:
+      [
+        "python",
+        "scripts/artst_asr_wrapper.py",
+        "--listen-host",
+        "0.0.0.0",
+        "--listen-port",
+        "8099",
+        "--model",
+        "MBZUAI/artst_asr_v3_qasr",
+        "--language",
+        "ar",
+        "--num-beams",
+        "${ARTST_QASR_NUM_BEAMS:-10}",
+        "--max-length",
+        "${ARTST_QASR_MAX_LENGTH:-150}",
+      ]
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      WRAPPER_AUTH_TOKEN: ${WRAPPER_AUTH_TOKEN:-}
+    ports:
+      - "${ARTST_QASR_HOST_PORT:-8086}:8099"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+      - ./:/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
 volumes:
   hf_cache:
   fairseq2_cache:

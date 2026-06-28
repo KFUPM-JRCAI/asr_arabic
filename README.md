@@ -119,6 +119,31 @@ docker compose run --rm leaderboard python scripts/evaluate.py \
   --save-preds --resume
 ```
 
+## MBZUAI/artst_asr_v3_qasr (optional)
+
+Run MBZUAI's ArTST-v3 QASR Arabic ASR model (SpeechT5) via a local OpenAI-compatible wrapper.
+
+```bash
+# 1) Build the custom Docker image (first time only)
+docker compose --profile artst-asr-qasr build artst-asr-qasr
+
+# 2) Launch the service (GPU recommended)
+docker compose --profile artst-asr-qasr up -d artst-asr-qasr
+
+# 3) Monitor logs until the model is loaded
+docker compose logs -f artst-asr-qasr
+# Wait for: "Server ready!"
+
+# 4) Evaluate against MBZUAI/artst_asr_v3_qasr
+docker compose run --rm leaderboard python scripts/evaluate.py \
+  --append \
+  --language ar \
+  --model MBZUAI/artst_asr_v3_qasr \
+  --api-url http://artst-asr-qasr:8099 \
+  --predictions-dir results/predictions_artst_asr_v3_qasr \
+  --save-preds --resume
+```
+
 ## KFUPM-JRCAI/WhisperTurboArabic (optional)
 
 Run KFUPM-JRCAI's fine-tuned Whisper Large v3 Turbo model for Arabic ASR.
@@ -325,6 +350,9 @@ Each dataset lives under `datasets/<dataset_id>/` with a `test.jsonl` manifest:
 - `ARTST_ASR_HOST_PORT` (default 8087) - port for ArTST-v3 wrapper
 - `ARTST_NUM_BEAMS` (default 10) - beam width used for ArTST-v3 generation
 - `ARTST_MAX_LENGTH` (default 150) - max generation length used for ArTST-v3
+- `ARTST_QASR_HOST_PORT` (default 8086) - port for ArTST-v3 QASR wrapper
+- `ARTST_QASR_NUM_BEAMS` (default 10) - beam width used for ArTST-v3 QASR generation
+- `ARTST_QASR_MAX_LENGTH` (default 150) - max generation length used for ArTST-v3 QASR
 - `WHISPER_LARGE_ARABIC_HOST_PORT` (default 8096) - port for WhisperLargeArabic wrapper
 - `WHISPER_TURBO_ARABIC_HOST_PORT` (default 8095) - port for WhisperTurboArabic wrapper
 - `WHISPER_ARABIC_V3_HOST_PORT` (default 8093) - port for WhisperArabic_v3 wrapper
